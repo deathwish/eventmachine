@@ -41,6 +41,8 @@ public interface EventableChannel {
 	
 	public boolean scheduleClose (boolean afterWriting);
 	
+    public void setTlsParms(String privkeyfile, String certchainfile, boolean verify_peer);
+
 	public void startTls();
 	
 	public long getBinding();

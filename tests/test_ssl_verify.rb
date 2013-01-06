@@ -75,6 +75,8 @@ if EM.ssl?
       assert_equal($cert_from_file, $cert_from_server)
       assert(!$client_handshake_completed)
       assert(!$server_handshake_completed)
+    rescue Java::JavaLangReflect::UndeclaredThrowableException => ex
+      raise ex.getUndeclaredThrowable
     end
   end
 else

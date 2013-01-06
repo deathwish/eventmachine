@@ -46,6 +46,7 @@ import javax.net.ssl.SSLEngineResult.*;
 import java.lang.reflect.Field;
 
 import java.security.*;
+import java.security.cert.CertificateException;
 
 public class EventableSocketChannel implements EventableChannel {
 	Selector selector;
@@ -64,6 +65,9 @@ public class EventableSocketChannel implements EventableChannel {
 	
 	SSLEngine sslEngine;
 	SSLContext sslContext;
+    KeyManager sslKeyManager;
+    TrustManager sslTrustManager;
+    boolean bSslVerifyPeer = false;
 
 	public EventableSocketChannel (SocketChannel sc, long _binding, Selector sel) {
 		channel = sc;
@@ -256,18 +260,106 @@ public class EventableSocketChannel implements EventableChannel {
 		}
 	}
 
-    public void setTlsParms(String privkeyfile, String certchainfile, boolean verify_peer) {
+    public SecureRandom getSecureRandom () {
+        return new SecureRandom();
+    }
+ 
+    public PrivateKey loadPrivateKey(String path) throws IOException {
+        // see http://objectmix.com/java/77153-creating-loading-openssl-certificate-java.html
+        FileInputStream fin = null;
+        try {
+            fin = new FileInputStream(path);
+
+            int bytesAvailable = fin.available();
+            byte[] keyBytes= new byte[bytesAvailable];
+            fin.read(keyBytes);
+
+            byte[] derKey = Base64.decode(keyBytes);
+            PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(derKey);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            return keyFactory.generatePrivate(privKeySpec);
+        } finally {
+            if(fin != null)
+                fin.close();
+        }
+    }
+
+    public void setTlsParms(String privkeyfile, String certchainfile, boolean verify_peer) throws RuntimeException {
         // "/home/lance/src/arkbot/vendor/eventmachine/tests/client.key"
         // "/home/lance/src/arkbot/vendor/eventmachine/tests/client.crt"
         // nil
+        System.out.println("setTlsParms(privkeyfile: " + privkeyfile + ", certchainfile: " + certchainfile + ", verify_peer: " + verify_peer + ")");
+        if(privkeyfile != null && !privkeyfile.equals("")) {
+            KeyStore keyStore = null;
+            try {
+                keyStore = KeyStore.getInstance("PKCS12");
+                keyStore.setEntry("mycrt",
+                                  new KeyStore.PrivateKeyEntry(loadPrivateKey(privkeyfile), chain),
+                                  new KeyStore.PasswordProtection("password".toCharArray())
+                                  );
+            }
+            catch(KeyStoreException ex) {
+                ex.printStackTrace();
+                throw new RuntimeException("Got " + ex);
+            }
+            catch(IOException ex) {
+                throw new RuntimeException("Failed to read key from " + privkeyfile + " : " + ex.getMessage());
+            }
+            catch(NoSuchAlgorithmException ex) {
+                ex.printStackTrace();
+                throw new RuntimeException("Got " + ex);
+            }
+            catch(CertificateException ex) {
+                ex.printStackTrace();
+                throw new RuntimeException("Got " + ex);
+            }
+            finally {
+                if(keyStoreInputStream != null)
+                    try {
+                        keyStoreInputStream.close();
+                    } catch(IOException ex) {
+                        System.err.println("Failed to close keyfile");
+                    }
+            }
+
+            try {
+               KeyManagerFactory keyManagerFactory = keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(keyStore, "password".toCharArray());
+                sslKeyManager = (keyManagerFactory.getKeyManagers())[0];
+            }
+            catch(KeyStoreException ex) {
+                ex.printStackTrace();
+                throw new RuntimeException("Got " + ex);
+            }
+            catch(NoSuchAlgorithmException ex) {
+                ex.printStackTrace();
+                throw new RuntimeException("Got " + ex);
+            }
+            catch(UnrecoverableKeyException ex) {
+                ex.printStackTrace();
+                throw new RuntimeException("Got " + ex);
+            }
+        }
+
+        if(certchainfile != null) {
+            // TODO set this up.
+            sslTrustManager = null;
+        }
+        bSslVerifyPeer = verify_peer;
     }
 
-	public void startTls() {
+	public void startTls() throws RuntimeException {
 		if (sslEngine == null) {
 			try {
 				sslContext = SSLContext.getInstance("TLS");
-                // parameters are (KeyManager[] km, TrustManager[] tm, SecureRandom random) 
-				sslContext.init(null, null, null); // TODO, fill in the parameters.
+                KeyManager[] keyManagers = null;
+                if(sslKeyManager != null)
+                    keyManagers = new KeyManager[] { sslKeyManager };
+                TrustManager[] trustManagers = null;
+                if(sslTrustManager != null)
+                    trustManagers = new TrustManager[] { sslTrustManager };
+                
+				sslContext.init(keyManagers, trustManagers, getSecureRandom());
                 // For peer hostnames, use (String peerHost, int peerPort) overload
 				sslEngine = sslContext.createSSLEngine(); // TODO, should use the parameterized version, to get Kerb stuff and session re-use.
 				sslEngine.setUseClientMode(false);

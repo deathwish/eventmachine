@@ -94,6 +94,10 @@ public class EventableDatagramChannel implements EventableChannel {
 		return false;
 	}
 	
+	public void setTlsParms(String privkeyfile, String certchainfile, boolean verify_peer) {
+		throw new RuntimeException ("TLS is unimplemented on this Channel");
+	}
+
 	public void startTls() {
 		throw new RuntimeException ("TLS is unimplemented on this Channel");
 	}
