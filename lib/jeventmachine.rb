@@ -149,7 +149,7 @@ module EventMachine
     @em.startTls sig
   end
   def self.ssl?
-    false
+    true
   end
   def self.signal_loopbreak
     @em.signalLoopbreak
@@ -268,10 +268,14 @@ module EventMachine
     @em.getConnectionCount
   end
 
-  def self.set_tls_parms(sig, params)
+  def self.set_tls_parms(sig, privkeyfile, certchainfile, verify_peer)
+    @em.setTlsParms(sig, privkeyfile, certchainfile, verify_peer)
   end
+
   def self.start_tls(sig)
+    @em.startTls(sig)
   end
+
   def self.send_file_data(sig, filename)
   end
 

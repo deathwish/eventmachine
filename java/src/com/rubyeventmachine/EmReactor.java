@@ -510,6 +510,10 @@ public class EmReactor {
 			mySelector.wakeup();
 	}
 
+    public void setTlsParms(long sig, String privkeyfile, String certchainfile, boolean verify_peer) {
+		Connections.get(sig).setTlsParms(privkeyfile, certchainfile, verify_peer);
+    }
+
 	public void startTls (long sig) throws NoSuchAlgorithmException, KeyManagementException {
 		Connections.get(sig).startTls();
 	}

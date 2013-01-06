@@ -256,11 +256,19 @@ public class EventableSocketChannel implements EventableChannel {
 		}
 	}
 
+    public void setTlsParms(String privkeyfile, String certchainfile, boolean verify_peer) {
+        // "/home/lance/src/arkbot/vendor/eventmachine/tests/client.key"
+        // "/home/lance/src/arkbot/vendor/eventmachine/tests/client.crt"
+        // nil
+    }
+
 	public void startTls() {
 		if (sslEngine == null) {
 			try {
 				sslContext = SSLContext.getInstance("TLS");
+                // parameters are (KeyManager[] km, TrustManager[] tm, SecureRandom random) 
 				sslContext.init(null, null, null); // TODO, fill in the parameters.
+                // For peer hostnames, use (String peerHost, int peerPort) overload
 				sslEngine = sslContext.createSSLEngine(); // TODO, should use the parameterized version, to get Kerb stuff and session re-use.
 				sslEngine.setUseClientMode(false);
 			} catch (NoSuchAlgorithmException e) {
